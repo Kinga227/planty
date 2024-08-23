@@ -1,6 +1,6 @@
 import customtkinter as ctk
 import tkinter as tk
-from tkinter import font as tkfont
+from tkinter import font as tkfont, filedialog, StringVar, ttk
 from PIL import Image
 import openpyxl
 
@@ -76,6 +76,110 @@ def display_plant_data(headers, plant_data):
                             row=i, column=1, sticky="w", padx=5, pady=pady_value)
 
             row_number +=1
+
+
+def open_add_new_plant_form():
+    for widget in content_frame.winfo_children():
+        widget.destroy()
+
+    global upload_image_button, name_entry, watering_spinbox, watering_var, light_textbox, add_button
+
+    # remove 'Új hozzáadása' button
+    new_plant_button.pack_forget()
+
+    # shadow for form
+    form_frame = ctk.CTkFrame(content_frame, fg_color="#D3D3D3", width=220, height=205)
+    form_frame.grid(row=0, column=0, padx=(75, 95), pady=(70, 0), sticky="ew")
+
+    form_frame.grid_rowconfigure(0, weight=1)
+    form_frame.grid_columnconfigure(0, weight=1)
+
+    # frame for the form
+    inner_frame = ctk.CTkFrame(form_frame, fg_color="#FFFFFF", width=220, height=205)
+    inner_frame.grid(row=0, column=0, padx=(0, 5), pady=(0, 5), sticky="ew")
+
+    inner_frame.grid_rowconfigure(0, weight=0)
+    inner_frame.grid_rowconfigure(1, weight=0)
+    inner_frame.grid_rowconfigure(2, weight=0)
+    inner_frame.grid_rowconfigure(3, weight=0)
+    inner_frame.grid_columnconfigure(0, weight=0)
+    inner_frame.grid_columnconfigure(1, weight=0)
+    inner_frame.grid_columnconfigure(2, weight=0)
+    inner_frame.grid_columnconfigure(3, weight=0)
+
+    # uploading image
+    upload_icon = Image.open("images\\upload.png")
+    ctk_icon = ctk.CTkImage(upload_icon, size=(50, 50))
+    upload_image_button = ctk.CTkButton(inner_frame, text="", command=upload_image, fg_color="#E0E0E0", image=ctk_icon, width=200, height=200)
+    upload_image_button.grid(row=0, column=0, padx=50, pady=70, rowspan=3, sticky="nw")
+
+    # name of plant
+    name_label = tk.Label(inner_frame, text="Név:", font=("Istok Web", 18, "normal"), bg="#FFFFFF", fg="#000000")
+    name_label.grid(row=0, column=1, padx=5, pady=(85, 0), sticky="w")
+    name_entry = ctk.CTkEntry(inner_frame, width=500, bg_color="#FFFFFF", fg_color="#FFFFFF", text_color="#000000")
+    name_entry.grid(row=0, column=2, padx=5, pady=(70, 0), sticky="w")
+
+    # watering
+    watering_label = tk.Label(inner_frame, text="Öntözni:", font=("Istok Web", 18, "normal"), bg="#FFFFFF", fg="#000000")
+    watering_label.grid(row=1, column=1, padx=5, pady=(10, 0), sticky="w")
+
+    watering_interval_frame = ctk.CTkFrame(inner_frame, fg_color="#FFFFFF", width=500)
+    watering_interval_frame.grid(row=1, column=2, padx=(5, 5), pady=(5, 0), sticky="w")
+
+    watering_spinbox = tk.Spinbox(watering_interval_frame, from_=1, to=30, width=5, font=("Istok Web", 16))
+    watering_spinbox.grid(row=0, column=0, padx=(0, 10), pady=(0, 0), sticky="w")
+
+    watering_var = StringVar(value="hetente")
+    watering_dropdown = ttk.Combobox(watering_interval_frame, textvariable=watering_var, values=["hetente", "naponta"], state="readonly", width=10, font=("Istok Web", 16))
+    watering_dropdown.grid(row=0, column=1, padx=(10, 0), pady=(0, 0), sticky="w")
+
+    # light needed
+    light_label = tk.Label(inner_frame, text="Fényigény:", font=("Istok Web", 18, "normal"), bg="#FFFFFF", fg="#000000")
+    light_label.grid(row=2, column=1, padx=5, pady=(0, 20), sticky="w")
+    light_textbox = tk.Text(inner_frame, height=2, width=25, font=("Istok Web", 16))
+    light_textbox.grid(row=2, column=2, padx=5, pady=(0, 20), sticky="w")
+
+    # submit button
+    add_button = ctk.CTkButton(inner_frame, text="Hozzáadás", fg_color="#05240A", command=add_new_plant, font=("Istok Web", 14, "bold"),
+                               height=40, width=180, corner_radius=20)
+    add_button.grid(row=3, column=0, columnspan=4, pady=(10, 20), sticky="e")
+
+    content_frame.grid_rowconfigure(0, weight=1)
+    content_frame.grid_columnconfigure(0, weight=1)
+
+
+def upload_image():
+    global uploaded_image_path
+    global image_name
+    file_path = filedialog.askopenfilename(filetypes=[("Image files", "*.png;*.jpg;*jpeg")])
+    if file_path:
+        uploaded_image = Image.open(file_path).resize((150, 150))
+        image_name = file_path.split("/")[-1].split("\\")[-1]
+        uploaded_image_path = f"images\\{image_name}"
+        uploaded_image.save(uploaded_image_path, format="PNG")
+        uploaded_ctk_image = ctk.CTkImage(light_image=uploaded_image, dark_image=uploaded_image, size=(150, 150))
+        upload_image_button.configure(image=uploaded_ctk_image)
+        upload_image_button.image = uploaded_ctk_image
+
+    
+def add_new_plant():
+    plant_name = name_entry.get()
+    watering = f"{watering_spinbox.get()} {watering_var.get()}"
+    light = light_textbox.get("1.0", "end").strip()
+
+    if not (plant_name and watering and light and uploaded_image_path):
+        return  # do nothing if any field is empty
+
+    # save the data to the excel file
+    path = ".\\plants.xlsx"
+    workbook = openpyxl.load_workbook(path)
+    sheet = workbook.active
+    new_plant_row = [image_name, plant_name, watering, "", light, 0 if active_button == mine_button else 1]
+    sheet.append(new_plant_row)
+    workbook.save(path)
+
+    # navigate back to the plant list and refresh
+    set_active_button(active_button)
 
 
 class CustomCTkButton(ctk.CTkButton):
@@ -159,6 +263,9 @@ def set_active_button(button):
     if active_button in [mine_button, others_button]:
         headers, plant_data = load_data()
         display_plant_data(headers, plant_data)
+
+        if active_button == mine_button:
+            new_plant_button.pack(expand=True, fill='y', pady=(0, 5))
     else:
         update_content(active_button)
 
@@ -232,6 +339,7 @@ button_frame.grid(row=2, column=0, sticky="nsew", columnspan=3)
 new_plant_button = ctk.CTkButton(button_frame, text="Új hozzáadása", fg_color="#05240A",
                                 height=40, width=180, corner_radius=20, font=(("Istok Web", 14, "bold")))
 new_plant_button.pack(expand=True, fill='y', pady=(0, 5))
+new_plant_button.configure(command=open_add_new_plant_form)
 
 # configure sizes for main frame and content frame
 main_frame.grid_rowconfigure(1, weight=1)  # allow row 1 to expand
