@@ -3,6 +3,7 @@ import tkinter as tk
 from tkinter import font as tkfont, filedialog, StringVar, ttk
 from PIL import Image
 import openpyxl
+from datetime import datetime, timedelta
 
 
 def load_data():
@@ -41,10 +42,68 @@ def display_plant_data(headers, plant_data):
             plant_label_img = ctk.CTkLabel(plant_frame, image=plant_img, text="")
             plant_label_img.grid(row=0, column=0, rowspan=5, padx=50, pady=25, sticky="n")
 
+            if plant[3]:    # if "Ontozve volt" is available
+                last_watered_date = plant[3]
+
+                # calculate based on frequency
+                if "nap" in plant[2]:
+                    interval_days = int(plant[2].split()[0])
+                elif "het" in plant[2]:
+                    interval_days = int(plant[2].split()[0]) * 7
+
+                next_watering_date = last_watered_date + timedelta(days=interval_days)
+                days_until_next_watering = (next_watering_date - datetime.now()).days
+
+                # calculate date of next watering
+                if days_until_next_watering == 0:
+                    next_watering_text = "ma"
+                    next_watering_color = "#670505"
+                elif days_until_next_watering < 0:
+                    days_ago = -days_until_next_watering
+                    weeks_ago = days_ago // 7
+                    days_ago %= 7
+                    if weeks_ago > 0 and days_ago > 0:
+                        next_watering_text = f"{weeks_ago} héttel és {days_ago} nappal ezelőtt"
+                    elif weeks_ago > 0:
+                        next_watering_text = f"{weeks_ago} héttel ezelőtt"
+                    else:
+                        next_watering_text = f"{days_ago} nappal ezelőtt"
+                    next_watering_color = "#FF0000" # red for oerdue watering
+                else:
+                    if days_until_next_watering < 7:
+                        next_watering_text = f"{days_until_next_watering} nap múlva"
+                    else:
+                        weeks = days_until_next_watering // 7
+                        days = days_until_next_watering % 7
+                        if days > 0:
+                            next_watering_text = f"{weeks} hét és {days} nap múlva"
+                        else:
+                            next_watering_text = f"{weeks} hét múlva"
+                    next_watering_color = "#000000" # black for upcoming watering
+
+                # calculate time since last watering
+                days_since_last_watering = (datetime.now() - last_watered_date).days
+                if days_since_last_watering == 0:
+                    last_watered_text = "ma"
+                elif days_since_last_watering < 7:
+                    last_watered_text = f"{days_since_last_watering} napja"
+                else:
+                    weeks_since_last_watering = days_since_last_watering // 7
+                    days = days_since_last_watering % 7
+                    if days > 0:
+                        last_watered_text = f"{weeks_since_last_watering} hete és {days} napja"
+                    else:
+                        last_watered_text = f"{weeks_since_last_watering} hete"
+
+            else:
+                next_watering_text = "ma"
+                next_watering_color = "#670505" # dark red for today
+                last_watered_text = "n/a"
+
             details = [
                 f"{plant[1]}",
-                f"{headers[3]}: {plant[3]}",
-                "Következő öntözés: ",
+                f"{headers[3]}: {last_watered_text}",
+                f"Következő öntözés: {next_watering_text}",
                 f"{headers[4]}: {plant[4]}",
             ]
 
@@ -60,19 +119,23 @@ def display_plant_data(headers, plant_data):
                 font_bold,          # next watering
                 font_regular        # needed light
             ]
+            label_colors = [
+                "#0A4714",          # name color
+                "#000000",          # last watered color
+                next_watering_color,  # next watering color
+                "#000000"           # light requirement color
+            ]
 
-            for i, (detail, style) in enumerate(zip(details, label_styles)):
+            for i, (detail, style, color) in enumerate(zip(details, label_styles, label_colors)):
                 pady_value = 0
-                font_color = "#000000"
                 if i == 0:  # above name
                     pady_value = (20, 0)
-                    font_color = "#0A4714"
                 elif i == len(details) - 1: # below light
                     pady_value = (0, 10)
                 else:   # between details
                     pady_value = (0, 0)
 
-                tk.Label(plant_frame, text=detail, font=style, bg="#FFFFFF", fg=font_color).grid(
+                tk.Label(plant_frame, text=detail, font=style, bg="#FFFFFF", fg=color).grid(
                             row=i, column=1, sticky="w", padx=5, pady=pady_value)
 
             row_number +=1
@@ -136,7 +199,7 @@ def open_add_new_plant_form():
     # light needed
     light_label = tk.Label(inner_frame, text="Fényigény:", font=("Istok Web", 18, "normal"), bg="#FFFFFF", fg="#000000")
     light_label.grid(row=2, column=1, padx=5, pady=(0, 20), sticky="w")
-    light_textbox = tk.Text(inner_frame, height=2, width=25, font=("Istok Web", 16))
+    light_textbox = tk.Text(inner_frame, height=2, width=50, font=("Istok Web", 16))
     light_textbox.grid(row=2, column=2, padx=5, pady=(0, 20), sticky="w")
 
     # submit button
