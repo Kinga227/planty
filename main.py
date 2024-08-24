@@ -21,15 +21,34 @@ def load_data():
 
 
 def display_plant_data(headers, plant_data):
-    # if active_button == calendar_button:
-    #     return  # do nothing on calendar page for now
     new_plant_button.pack(expand=True, fill='y', pady=(0, 5))
 
     for widget in content_frame.winfo_children():
         widget.destroy()
 
+    def calculate_next_watering_date(plant):
+        last_watered_date = plant[3]
+        if isinstance(last_watered_date, str):
+            last_watered_date = datetime.strptime(last_watered_date, "%Y-%m-%d %H:%M:%S").date()
+
+        watering_interval = plant[2]
+        if "naponta" in watering_interval:
+            interval_days = int(watering_interval.split()[0])
+        elif "hetente" in watering_interval:
+            interval_days = int(watering_interval.split()[0]) * 7
+        else:
+            interval_days = 0  # default value if no interval is specified
+        
+        if last_watered_date:
+            next_watering_date = last_watered_date + timedelta(days=interval_days)
+            return next_watering_date
+        else:
+            return datetime.now().date()
+        
+    sorted_plants = sorted(plant_data, key=calculate_next_watering_date)
+
     row_number = 0
-    for index, plant in enumerate(plant_data):
+    for index, plant in enumerate(sorted_plants):
         if (plant[5] == 0 and active_button == mine_button) or (plant[5] == 1 and active_button == others_button):
             border_frame = ctk.CTkFrame(content_frame, fg_color="#D3D3D3", width=220, height=205)
             border_frame.grid(row=row_number, column=0, sticky="ew", padx=(75, 95), pady=(5, 0))
