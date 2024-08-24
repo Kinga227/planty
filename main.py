@@ -36,6 +36,11 @@ def display_plant_data(headers, plant_data):
             plant_frame = ctk.CTkFrame(content_frame, fg_color="#FFFFFF")
             plant_frame.grid(row=row_number, column=0, sticky="ew", padx=(70, 100), pady=5)
 
+            # grid configuration for the plant frame
+            plant_frame.grid_columnconfigure(0, weight=0)
+            plant_frame.grid_columnconfigure(1, weight=1)
+            plant_frame.grid_columnconfigure(2, weight=0)
+
             # image of plant
             plant_img = ctk.CTkImage(light_image=Image.open(f"images\\{plant[0]}"),
                                     dark_image=Image.open(f"images\\{plant[0]}"),
@@ -47,10 +52,12 @@ def display_plant_data(headers, plant_data):
             # watering button
             watering_icon = ctk.CTkImage(light_image=Image.open("images\\light_mode_watering_can.png"),
                                          dark_image=Image.open("images\\light_mode_watering_can.png"),
-                                         size=(30, 30))
-            watering_button = ctk.CTkButton(plant_frame, text="", image=watering_icon, width=30, height=30,
-                                            command=lambda p=plant, i=index: open_calendar_popup(p, i))
-            watering_button.grid(row=0, column=2, padx=10, pady=10, sticky="ne")
+                                         size=(55, 55))
+            watering_button = ctk.CTkButton(plant_frame, text="", image=watering_icon, width=55, height=55,
+                                            command=lambda p=plant, i=index: open_calendar_popup(p, i),
+                                            fg_color="#FFFFFF",
+                                            border_width=0)
+            watering_button.grid(row=0, column=2, padx=(10, 25), pady=(10, 0), sticky="ne")
 
             # handle "Ontozve volt" field
             last_watered_date = plant[3]
@@ -77,11 +84,6 @@ def display_plant_data(headers, plant_data):
                     
                 if isinstance(last_watered_date, datetime):
                     last_watered_date = last_watered_date.date()
-
-                print('last watered date: ', last_watered_date)
-                print('timedelta: ', timedelta(days=interval_days))
-                print('today date: ', today_date)
-                print('next watering date: ', next_watering_date)
                 
                 # calculate days until next watering
                 days_until_next_watering = (next_watering_date - today_date).days
@@ -403,7 +405,7 @@ def display_calendar():
     today = datetime.now()
 
     for day in range(1, days_in_month + 1):
-        plant_count = count_plants_on_day(selected_year, selected_month, day)  # Ez a függvény számolja az adott nap növényeit
+        plant_count = count_plants_on_day(selected_year, selected_month, day)
         circle_color = "#FF0000" if (selected_year == today.year and selected_month == today.month and day < today.day) else "#00FF00"
         if selected_year == today.year and selected_month == today.month and day == today.day:
             circle_color = "#0000FF"  # current day
@@ -487,16 +489,46 @@ def open_calendar_popup(plant, plant_index):
     popup = tk.Toplevel(root)
     popup.title("Válaszd ki az utolsó öntözés dátumát")
 
-    cal = Calendar(popup, selectmode="day", year=selected_year, month=selected_month, day=datetime.now().day)
-    cal.pack(pady=20)
+    popup_width = 700
+    popup_height = 500
+
+    screen_width = popup.winfo_screenwidth()
+    screen_height = popup.winfo_screenheight()
+
+    x = screen_width // 2
+    y = (screen_height // 2) - (popup_height // 2)
+
+    popup.geometry(f"{popup_width}x{popup_height}+{x}+{y}")
+
+    popup.grid_rowconfigure(0, weight=1)
+    popup.grid_rowconfigure(1, weight=0)
+    popup.grid_columnconfigure(0, weight=1)
+
+    cal = Calendar(popup,
+                   selectmode="day",
+                   year=datetime.now().year,
+                   month=datetime.now().month,
+                   day=datetime.now().day,
+                   background='#C7F1CE',
+                   foreground='#000000',
+                   selectbackground='#05240A',
+                   selectforeground='#FFFFFF',
+                   bordercolor='#C7F1CE',
+                   headersbackground='#C7F1CE',
+                  )
+    cal.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+    cal.config(cursor="hand2")
 
     def on_date_selected():
         selected_date = cal.selection_get()
         update_watering_date(plant_index, selected_date)
         popup.destroy()
 
-    select_button = ctk.CTkButton(popup, text="Kiválaszt", command=on_date_selected)
-    select_button.pack(pady=10)
+    select_button = ctk.CTkButton(popup, text="Kiválaszt", command=on_date_selected,
+                                  fg_color="#05240A", height=35, width=120, corner_radius=20, font=(("Istok Web", 12, "bold")))
+    select_button.grid(row=1, column=0, pady=10, sticky="s")
+
+    popup.update_idletasks()
 
 
 root = ctk.CTk()
