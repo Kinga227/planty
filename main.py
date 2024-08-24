@@ -5,6 +5,7 @@ from PIL import Image
 import openpyxl
 from datetime import datetime, timedelta
 from calendar import monthrange, month_name
+from tkcalendar import Calendar
 
 
 def load_data():
@@ -21,13 +22,13 @@ def load_data():
 
 def display_plant_data(headers, plant_data):
     if active_button == calendar_button:
-        return      # do nothing on calendar page for now
+        return  # do nothing on calendar page for now
 
     for widget in content_frame.winfo_children():
         widget.destroy()
 
     row_number = 0
-    for plant in plant_data:
+    for index, plant in enumerate(plant_data):
         if (plant[5] == 0 and active_button == mine_button) or (plant[5] == 1 and active_button == others_button):
             border_frame = ctk.CTkFrame(content_frame, fg_color="#D3D3D3", width=220, height=205)
             border_frame.grid(row=row_number, column=0, sticky="ew", padx=(75, 95), pady=(5, 0))
@@ -43,19 +44,48 @@ def display_plant_data(headers, plant_data):
             plant_label_img = ctk.CTkLabel(plant_frame, image=plant_img, text="")
             plant_label_img.grid(row=0, column=0, rowspan=5, padx=50, pady=25, sticky="n")
 
-            if plant[3]:    # if "Ontozve volt" is available
-                last_watered_date = plant[3]
+            # watering button
+            watering_icon = ctk.CTkImage(light_image=Image.open("images\\light_mode_watering_can.png"),
+                                         dark_image=Image.open("images\\light_mode_watering_can.png"),
+                                         size=(30, 30))
+            watering_button = ctk.CTkButton(plant_frame, text="", image=watering_icon, width=30, height=30,
+                                            command=lambda p=plant, i=index: open_calendar_popup(p, i))
+            watering_button.grid(row=0, column=2, padx=10, pady=10, sticky="ne")
 
-                # calculate based on frequency
-                if "nap" in plant[2]:
-                    interval_days = int(plant[2].split()[0])
-                elif "het" in plant[2]:
-                    interval_days = int(plant[2].split()[0]) * 7
-
+            # handle "Ontozve volt" field
+            last_watered_date = plant[3]
+            if isinstance(last_watered_date, str):
+                last_watered_date = datetime.strptime(last_watered_date, "%Y-%m-%d %H:%M:%S").date()
+            
+            watering_interval = plant[2]
+            if "nap" in watering_interval:
+                interval_days = int(watering_interval.split()[0])
+            elif "het" in watering_interval:
+                interval_days = int(watering_interval.split()[0]) * 7
+            else:
+                interval_days = 0  # default value if no interval is specified
+            
+            today_date = datetime.now().date()
+            
+            if last_watered_date:
+                # calculate next watering date
                 next_watering_date = last_watered_date + timedelta(days=interval_days)
-                days_until_next_watering = (next_watering_date - datetime.now()).days
+                
+                # ensure next_watering_date is a date object
+                if isinstance(next_watering_date, datetime):
+                    next_watering_date = next_watering_date.date()
+                    
+                if isinstance(last_watered_date, datetime):
+                    last_watered_date = last_watered_date.date()
 
-                # calculate date of next watering
+                print('last watered date: ', last_watered_date)
+                print('timedelta: ', timedelta(days=interval_days))
+                print('today date: ', today_date)
+                print('next watering date: ', next_watering_date)
+                
+                # calculate days until next watering
+                days_until_next_watering = (next_watering_date - today_date).days
+
                 if days_until_next_watering == 0:
                     next_watering_text = "ma"
                     next_watering_color = "#670505"
@@ -69,7 +99,7 @@ def display_plant_data(headers, plant_data):
                         next_watering_text = f"{weeks_ago} héttel ezelőtt"
                     else:
                         next_watering_text = f"{days_ago} nappal ezelőtt"
-                    next_watering_color = "#FF0000" # red for oerdue watering
+                    next_watering_color = "#FF0000" # red for overdue watering
                 else:
                     if days_until_next_watering < 7:
                         next_watering_text = f"{days_until_next_watering} nap múlva"
@@ -83,7 +113,7 @@ def display_plant_data(headers, plant_data):
                     next_watering_color = "#000000" # black for upcoming watering
 
                 # calculate time since last watering
-                days_since_last_watering = (datetime.now() - last_watered_date).days
+                days_since_last_watering = (today_date - last_watered_date).days
                 if days_since_last_watering == 0:
                     last_watered_text = "ma"
                 elif days_since_last_watering < 7:
@@ -118,20 +148,20 @@ def display_plant_data(headers, plant_data):
                 font_bigger_bold,   # name
                 font_regular,       # watered
                 font_bold,          # next watering
-                font_regular        # needed light
+                font_regular        # notes
             ]
             label_colors = [
                 "#0A4714",          # name color
                 "#000000",          # last watered color
                 next_watering_color,  # next watering color
-                "#000000"           # light requirement color
+                "#000000"           # notes color
             ]
 
             for i, (detail, style, color) in enumerate(zip(details, label_styles, label_colors)):
                 pady_value = 0
                 if i == 0:  # above name
                     pady_value = (20, 0)
-                elif i == len(details) - 1: # below light
+                elif i == len(details) - 1:  # below notes
                     pady_value = (0, 10)
                 else:   # between details
                     pady_value = (0, 0)
@@ -139,14 +169,14 @@ def display_plant_data(headers, plant_data):
                 tk.Label(plant_frame, text=detail, font=style, bg="#FFFFFF", fg=color).grid(
                             row=i, column=1, sticky="w", padx=5, pady=pady_value)
 
-            row_number +=1
+            row_number += 1
 
 
 def open_add_new_plant_form():
     for widget in content_frame.winfo_children():
         widget.destroy()
 
-    global upload_image_button, name_entry, watering_spinbox, watering_var, light_textbox, add_button
+    global upload_image_button, name_entry, watering_spinbox, watering_var, notes_textbox, add_button
 
     # remove 'Új hozzáadása' button
     new_plant_button.pack_forget()
@@ -197,11 +227,11 @@ def open_add_new_plant_form():
     watering_dropdown = ttk.Combobox(watering_interval_frame, textvariable=watering_var, values=["hetente", "naponta"], state="readonly", width=10, font=("Istok Web", 16))
     watering_dropdown.grid(row=0, column=1, padx=(10, 0), pady=(0, 0), sticky="w")
 
-    # light needed
-    light_label = tk.Label(inner_frame, text="Fényigény:", font=("Istok Web", 18, "normal"), bg="#FFFFFF", fg="#000000")
-    light_label.grid(row=2, column=1, padx=5, pady=(0, 20), sticky="w")
-    light_textbox = tk.Text(inner_frame, height=2, width=50, font=("Istok Web", 16))
-    light_textbox.grid(row=2, column=2, padx=5, pady=(0, 20), sticky="w")
+    # notes
+    notes_label = tk.Label(inner_frame, text="Megjegyzések:", font=("Istok Web", 18, "normal"), bg="#FFFFFF", fg="#000000")
+    notes_label.grid(row=2, column=1, padx=5, pady=(0, 20), sticky="w")
+    notes_textbox = tk.Text(inner_frame, height=2, width=50, font=("Istok Web", 16))
+    notes_textbox.grid(row=2, column=2, padx=5, pady=(0, 20), sticky="w")
 
     # submit button
     add_button = ctk.CTkButton(inner_frame, text="Hozzáadás", fg_color="#05240A", command=add_new_plant, font=("Istok Web", 14, "bold"),
@@ -236,16 +266,16 @@ def upload_image():
 def add_new_plant():
     plant_name = name_entry.get()
     watering = f"{watering_spinbox.get()} {watering_var.get()}"
-    light = light_textbox.get("1.0", "end").strip()
+    notes = notes_textbox.get("1.0", "end").strip()
 
-    if not (plant_name and watering and light and uploaded_image_path):
+    if not (plant_name and watering and notes and uploaded_image_path):
         return  # do nothing if any field is empty
 
     # save the data to the excel file
     path = ".\\plants.xlsx"
     workbook = openpyxl.load_workbook(path)
     sheet = workbook.active
-    new_plant_row = [image_name, plant_name, watering, "", light, 0 if active_button == mine_button else 1]
+    new_plant_row = [image_name, plant_name, watering, "", notes, 0 if active_button == mine_button else 1]
     sheet.append(new_plant_row)
     workbook.save(path)
 
@@ -427,6 +457,46 @@ def update_content(button):
     else:
         if content_label:
             content_label.config(text="")   # clear label for displaying plants
+
+
+def update_watering_date(plant_index, new_date):
+    global plant_data
+    plant_data[plant_index] = list(plant_data[plant_index])
+
+    # update date when it was watered
+    plant_data[plant_index][3] = new_date
+
+    # save data to excel
+    path = ".\\plants.xlsx"
+    workbook = openpyxl.load_workbook(path)
+    sheet = workbook.active
+    
+    # find index of plant
+    row_index = plant_index + 2
+    
+    # update the cell with the new date
+    sheet.cell(row=row_index, column=4, value=new_date.strftime("%Y-%m-%d %H:%M:%S"))
+
+    workbook.save(path)
+
+    # refresh the displayed data
+    display_plant_data(headers, plant_data)
+
+
+def open_calendar_popup(plant, plant_index):
+    popup = tk.Toplevel(root)
+    popup.title("Válaszd ki az utolsó öntözés dátumát")
+
+    cal = Calendar(popup, selectmode="day", year=selected_year, month=selected_month, day=datetime.now().day)
+    cal.pack(pady=20)
+
+    def on_date_selected():
+        selected_date = cal.selection_get()
+        update_watering_date(plant_index, selected_date)
+        popup.destroy()
+
+    select_button = ctk.CTkButton(popup, text="Kiválaszt", command=on_date_selected)
+    select_button.pack(pady=10)
 
 
 root = ctk.CTk()
