@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import font as tkfont, filedialog, StringVar, ttk
 from PIL import Image
 import openpyxl
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from calendar import monthrange, month_name
 from tkcalendar import Calendar
 
@@ -21,8 +21,9 @@ def load_data():
 
 
 def display_plant_data(headers, plant_data):
-    if active_button == calendar_button:
-        return  # do nothing on calendar page for now
+    # if active_button == calendar_button:
+    #     return  # do nothing on calendar page for now
+    new_plant_button.pack(expand=True, fill='y', pady=(0, 5))
 
     for widget in content_frame.winfo_children():
         widget.destroy()
@@ -374,30 +375,55 @@ def set_active_button(button):
 
 
 def display_calendar():
+    new_plant_button.pack_forget()
+
     # clear content frame
+    content_frame.update_idletasks()
     for widget in content_frame.winfo_children():
         widget.destroy()
 
-    header_frame = ctk.CTkFrame(content_frame, fg_color="#D3D3D3")
+    header_frame = ctk.CTkFrame(content_frame, fg_color="#C7F1CE")
     header_frame.grid(row=0, column=0, pady=10, sticky="ew")
 
-    prev_button = ctk.CTkButton(header_frame, text="<", command=lambda: change_month(-1))
-    prev_button.pack(side="left", padx=(10, 0))
+    header_frame.columnconfigure(0, weight=1)
+    header_frame.columnconfigure(1, weight=1)
+    header_frame.columnconfigure(2, weight=1)
 
-    month_label = ctk.CTkLabel(header_frame, text=f"{month_name[selected_month]} {selected_year}", font=("Istok Web", 20, "bold"))
-    month_label.pack(side="left", padx=10)
+    prev_button = ctk.CTkButton(header_frame, text="<", command=lambda: change_month(-1),
+                                width=50, height=50, font=("Istok Web", 22), fg_color="#05240A")
+    prev_button.grid(row=0, column=0, sticky="e")
 
-    next_button = ctk.CTkButton(header_frame, text=">", command=lambda: change_month(1))
-    next_button.pack(side="left", padx=(0, 10))
+    month_label = ctk.CTkLabel(header_frame, text=f"{month_name[selected_month]} {selected_year}",
+                               font=("Istok Web", 26, "bold"), text_color="#000000")
+    month_label.grid(row=0, column=1, pady=(20, 10), sticky="ew")
+
+    next_button = ctk.CTkButton(header_frame, text=">", command=lambda: change_month(1),
+                                width=50, height=50, font=("Istok Web", 22), fg_color="#05240A")
+    next_button.grid(row=0, column=2, sticky="w")
+
+    header_frame.columnconfigure(1, weight=1)
 
     # frame of calendar
     days_frame = ctk.CTkFrame(content_frame, fg_color="#FFFFFF")
-    days_frame.grid(row=1, column=0, pady=10, sticky="nsew")
+    days_frame.grid(row=1, column=0, padx=260, pady=(30, 0), sticky="nsew")
+
+    content_frame.grid_rowconfigure(1, weight=1)
+    content_frame.grid_columnconfigure(0, weight=1)
+
+    days_frame.grid_rowconfigure(0, weight=0)
+    days_frame.grid_rowconfigure(1, weight=1)
+
+    cell_size = 80
+    
+    for col in range(7):
+        days_frame.grid_columnconfigure(col, minsize=cell_size, weight=1, uniform="day")
+    for row in range(6):
+        days_frame.grid_rowconfigure(row + 1, minsize=cell_size, weight=1)
 
     # name of days
-    for i, day_name in enumerate(["H", "K", "Sze", "Cs", "P", "Szo", "V"]):
-        day_label = ctk.CTkLabel(days_frame, text=day_name, font=("Istok Web", 16, "bold"))
-        day_label.grid(row=0, column=i, padx=10, pady=10)
+    for i, day_name in enumerate(["Hétfő", "Kedd", "Szerda", "Csütörtök", "Péntek", "Szombat", "Vasárnap"]):
+        day_label = ctk.CTkLabel(days_frame, text=day_name, font=("Istok Web", 18), text_color="#000000")
+        day_label.grid(row=0, column=i, padx=10, pady=10, sticky="nsew")
 
     first_day_of_month, days_in_month = monthrange(selected_year, selected_month)
     row = 1
@@ -406,23 +432,41 @@ def display_calendar():
 
     for day in range(1, days_in_month + 1):
         plant_count = count_plants_on_day(selected_year, selected_month, day)
-        circle_color = "#FF0000" if (selected_year == today.year and selected_month == today.month and day < today.day) else "#00FF00"
+        
+        # get cell color
         if selected_year == today.year and selected_month == today.month and day == today.day:
-            circle_color = "#0000FF"  # current day
+            cell_bg_color = "#DDDDDD"  # today
+            text_color = "#000000"
+        elif plant_count > 0:
+            cell_bg_color = "#C22124" if (today.year == selected_year and today.month == selected_month and day < today.day) else "#2E953F"
+            text_color = "#FFFFFF"
+        else:
+            cell_bg_color = "#FFFFFF"  # default
+            text_color = "#A4A4A4"
+        
+        # create day cell
+        day_frame = ctk.CTkFrame(days_frame, fg_color=cell_bg_color, height=cell_size, width=cell_size)
+        day_frame.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
+        
+        inner_frame = ctk.CTkFrame(day_frame, fg_color=cell_bg_color)
+        inner_frame.pack(expand=True, fill="both")
 
-        day_frame = ctk.CTkFrame(days_frame, fg_color="#FFFFFF", width=100, height=100)
-        day_frame.grid(row=row, column=col, padx=5, pady=5)
-        day_label = ctk.CTkLabel(day_frame, text=f"{day}\n{plant_count}", font=("Istok Web", 16, "bold"))
-        day_label.pack(expand=True, fill="both")
+        # day number label
+        day_number_label = ctk.CTkLabel(inner_frame, text=str(day), font=("Istok Web", 14, "bold"), text_color=text_color)
+        day_number_label.pack(anchor="nw", padx=5, pady=5)
 
-        # circle for waterings
+        # plant count label
         if plant_count > 0:
-            ctk.CTkCanvas(day_frame, width=40, height=40).create_oval(10, 10, 30, 30, outline=circle_color, width=3)
+            day_count_label = ctk.CTkLabel(inner_frame, text=f"{plant_count}", font=("Istok Web", 22, "bold"), text_color=text_color)
+            day_count_label.pack(expand=True, fill="both", pady=(0, 10))
 
         col += 1
         if col > 6:
             col = 0
             row += 1
+
+    content_frame.update_idletasks()
+
 
 def change_month(direction):
     global selected_month, selected_year
@@ -437,28 +481,31 @@ def change_month(direction):
     display_calendar()
 
 def count_plants_on_day(year, month, day):
-    headers, plant_data = load_data()
+    _, plant_data = load_data()
     count = 0
-    target_date = datetime(year, month, day)
+    target_date = date(year, month, day)
     # get watering dates
     for plant in plant_data:
         if plant[3]:
-            last_watered_date = plant[3]
+            last_watered_date = datetime.strptime(str(plant[3]), "%Y-%m-%d %H:%M:%S").date()
             interval_days = int(plant[2].split()[0])
+
             if "het" in plant[2]:
                 interval_days *= 7
+
             next_watering_date = last_watered_date + timedelta(days=interval_days)
-            if next_watering_date.date() == target_date.date():
+            if next_watering_date == target_date:
                 count += 1
     return count
 
 
 def update_content(button):
+    global active_button
+    active_button = button
     if button == calendar_button:
         display_calendar()
     else:
-        if content_label:
-            content_label.config(text="")   # clear label for displaying plants
+        display_plant_data(headers, plant_data)
 
 
 def update_watering_date(plant_index, new_date):
@@ -559,17 +606,17 @@ buttons_width = int(screen_width * button_width_ratio)
 calendar_button_width = button_height  # make calendar button square
 
 # navigation buttons
-mine_button = CustomCTkButton(main_frame, text="Saját")
+mine_button = CustomCTkButton(main_frame, text="Saját", command=lambda: update_content(mine_button))
 mine_button.grid(row=0, column=0, sticky="nsew")
 
-others_button = CustomCTkButton(main_frame, text="Más")
+others_button = CustomCTkButton(main_frame, text="Más", command=lambda: update_content(others_button))
 others_button.grid(row=0, column=1, sticky="nsew")
 
 calendar_icon = ctk.CTkImage(light_image=Image.open("images\\black_calendar.png"),
                                 dark_image=Image.open("images\\white_calendar.png"),
                                 size=(40, 40))
 
-calendar_button = CustomCTkButton(main_frame, text="", image=calendar_icon, fg_color="#05240A")
+calendar_button = CustomCTkButton(main_frame, text="", image=calendar_icon, fg_color="#05240A", command=lambda: update_content(calendar_button))
 calendar_button.grid(row=0, column=2, sticky="nsew")
 
 # set sizes
