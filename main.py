@@ -4,6 +4,7 @@ from tkinter import font as tkfont, filedialog, StringVar, ttk
 from PIL import Image
 import openpyxl
 from datetime import datetime, timedelta
+from calendar import monthrange, month_name
 
 
 def load_data():
@@ -210,6 +211,13 @@ def open_add_new_plant_form():
     content_frame.grid_rowconfigure(0, weight=1)
     content_frame.grid_columnconfigure(0, weight=1)
 
+    # scroll to the top of the content frame
+    scroll_to_top(content_frame)
+
+
+def scroll_to_top(frame):
+    frame._parent_canvas.yview_moveto(0)
+
 
 def upload_image():
     global uploaded_image_path
@@ -333,10 +341,89 @@ def set_active_button(button):
         update_content(active_button)
 
 
+def display_calendar():
+    # clear content frame
+    for widget in content_frame.winfo_children():
+        widget.destroy()
+
+    header_frame = ctk.CTkFrame(content_frame, fg_color="#D3D3D3")
+    header_frame.grid(row=0, column=0, pady=10, sticky="ew")
+
+    prev_button = ctk.CTkButton(header_frame, text="<", command=lambda: change_month(-1))
+    prev_button.pack(side="left", padx=(10, 0))
+
+    month_label = ctk.CTkLabel(header_frame, text=f"{month_name[selected_month]} {selected_year}", font=("Istok Web", 20, "bold"))
+    month_label.pack(side="left", padx=10)
+
+    next_button = ctk.CTkButton(header_frame, text=">", command=lambda: change_month(1))
+    next_button.pack(side="left", padx=(0, 10))
+
+    # frame of calendar
+    days_frame = ctk.CTkFrame(content_frame, fg_color="#FFFFFF")
+    days_frame.grid(row=1, column=0, pady=10, sticky="nsew")
+
+    # name of days
+    for i, day_name in enumerate(["H", "K", "Sze", "Cs", "P", "Szo", "V"]):
+        day_label = ctk.CTkLabel(days_frame, text=day_name, font=("Istok Web", 16, "bold"))
+        day_label.grid(row=0, column=i, padx=10, pady=10)
+
+    first_day_of_month, days_in_month = monthrange(selected_year, selected_month)
+    row = 1
+    col = first_day_of_month
+    today = datetime.now()
+
+    for day in range(1, days_in_month + 1):
+        plant_count = count_plants_on_day(selected_year, selected_month, day)  # Ez a függvény számolja az adott nap növényeit
+        circle_color = "#FF0000" if (selected_year == today.year and selected_month == today.month and day < today.day) else "#00FF00"
+        if selected_year == today.year and selected_month == today.month and day == today.day:
+            circle_color = "#0000FF"  # current day
+
+        day_frame = ctk.CTkFrame(days_frame, fg_color="#FFFFFF", width=100, height=100)
+        day_frame.grid(row=row, column=col, padx=5, pady=5)
+        day_label = ctk.CTkLabel(day_frame, text=f"{day}\n{plant_count}", font=("Istok Web", 16, "bold"))
+        day_label.pack(expand=True, fill="both")
+
+        # circle for waterings
+        if plant_count > 0:
+            ctk.CTkCanvas(day_frame, width=40, height=40).create_oval(10, 10, 30, 30, outline=circle_color, width=3)
+
+        col += 1
+        if col > 6:
+            col = 0
+            row += 1
+
+def change_month(direction):
+    global selected_month, selected_year
+    selected_month += direction
+    if selected_month < 1:
+        selected_month = 12
+        selected_year -= 1
+    elif selected_month > 12:
+        selected_month = 1
+        selected_year += 1
+
+    display_calendar()
+
+def count_plants_on_day(year, month, day):
+    headers, plant_data = load_data()
+    count = 0
+    target_date = datetime(year, month, day)
+    # get watering dates
+    for plant in plant_data:
+        if plant[3]:
+            last_watered_date = plant[3]
+            interval_days = int(plant[2].split()[0])
+            if "het" in plant[2]:
+                interval_days *= 7
+            next_watering_date = last_watered_date + timedelta(days=interval_days)
+            if next_watering_date.date() == target_date.date():
+                count += 1
+    return count
+
+
 def update_content(button):
     if button == calendar_button:
-        if content_label:   # if label exists
-            content_label.config(text="This is the content for the calendar button.")
+        display_calendar()
     else:
         if content_label:
             content_label.config(text="")   # clear label for displaying plants
@@ -418,5 +505,10 @@ set_active_button(mine_button)  # set to active
 
 headers, plant_data = load_data()
 display_plant_data(headers, plant_data)
+
+selected_month = datetime.now().month
+selected_year = datetime.now().year
+
+calendar_button.configure(command=display_calendar)
 
 root.mainloop()
